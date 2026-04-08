@@ -3,9 +3,8 @@ models.py — Definição das tabelas do banco de dados via SQLAlchemy ORM.
 """
 
 from sqlalchemy import Column, Integer, Float, String, Date, ForeignKey
-from sqlalchemy.orm import declarative_base, relationship
-
-Base = declarative_base()
+from sqlalchemy.orm import relationship
+from src.database import Base
 
 
 class Produto(Base):
