@@ -19,6 +19,7 @@ from src.queries import (
     receita_semana_atual_vs_anterior,
 )
 from src.etl import rodar_etl
+from src.database import DB_PATH
 
 # ── Configuração da página ──────────────────────────────────────────────────
 st.set_page_config(
@@ -81,14 +82,15 @@ with st.sidebar:
     dias_historico = st.slider("Janela histórica (dias)", min_value=7, max_value=90, value=30, step=7)
 
     st.divider()
-    st.subheader("🔄Atualizar Dados")
+    st.subheader("🔄 Atualizar Dados")
     st.caption("Executa o pipeline ETL manualmente para buscar dados frescos da API.")
     if st.button("Rodar ETL agora", use_container_width=True, type="primary"):
         with st.spinner("Executando pipeline..."):
             try:
                 rodar_etl()
-                st.success("ETL concluído com sucesso!")
                 st.cache_data.clear()
+                st.success("ETL concluído com sucesso!")
+                st.rerun()  # ← Bug 3 corrigido: recarrega a página com dados novos
             except Exception as e:
                 st.error(f"Erro no ETL: {e}")
 
@@ -99,7 +101,7 @@ with st.sidebar:
 
 # ── Cache das queries ────────────────────────────────────────────────────────
 
-@st.cache_data(ttl=300)  # cache de 5 minutos
+@st.cache_data(ttl=300)
 def load_kpis():
     return kpis_gerais()
 
@@ -121,11 +123,13 @@ def load_top_produtos(n):
 
 
 # ── Verificar se banco existe ────────────────────────────────────────────────
-db_path = Path("data/vendas.db")
+# Bug 1 corrigido: usa DB_PATH do database.py (correto para Cloud e local)
+db_path = Path(DB_PATH)
 if not db_path.exists():
     st.info("Banco de dados não encontrado. Rodando ETL inicial...")
     with st.spinner("Isso pode levar alguns segundos..."):
         rodar_etl()
+    st.cache_data.clear()  # ← garante que o cache não serve dados vazios
     st.rerun()
 
 
@@ -163,7 +167,6 @@ df_dia = load_por_dia(dias_historico)
 st.subheader("Receita Diária")
 
 if not df_dia.empty:
-    # Média móvel de 7 dias
     df_dia["media_movel_7d"] = df_dia["receita_total"].rolling(7, min_periods=1).mean()
 
     fig_linha = go.Figure()
